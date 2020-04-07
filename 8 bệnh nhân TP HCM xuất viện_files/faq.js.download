@@ -1,0 +1,292 @@
+if(['vnexpress.net', 'beta.vnexpress.net'].indexOf(location.host) < 0)
+{
+    var js_url_vne = 'https://st-demo.vnecdn.net/vnexpress/restruct/j/v137';
+}
+var js_cen_vne = js_url_vne.replace('s.vnecdn.net', 's1.vnecdn.net').replace('scdn.vnecdn.net', 's1cdn.vnecdn.net');
+var parseHTML = function(html) {
+	var t = document.createElement('template');
+	t.innerHTML = html;
+	return t.content.cloneNode(true);
+}
+
+var importScript = function(url, callback) {
+    var s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.async = true;
+    s.onload = function(){
+        callback();
+    }
+    s.src = url;
+    var x = document.getElementsByTagName('head')[0];
+    x.appendChild(s);
+}
+
+var importStyle = function(filepath) {
+    if(document.querySelectorAll('link[href="' + filepath + '"]').length <= 0){
+        let el = document.createElement('link');
+        el.setAttribute('type', 'text/css');
+        el.setAttribute('rel', 'Stylesheet');
+        el.setAttribute('href', filepath);
+        document.getElementsByTagName('head')[0].appendChild(el);
+    }
+}
+
+var textToAscii = function(str) {
+    var from = "àáãảạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệđùúủũụưừứửữựòóỏõọôồốổỗộơờớởỡợìíỉĩịäëïîöüûñç",
+        to   = "aaaaaaaaaaaaaaaaaeeeeeeeeeeeduuuuuuuuuuuoooooooooooooooooiiiiiaeiiouunc";
+        for (var i=0, l=from.length ; i < l ; i++) {
+        str = str.replace(RegExp(from[i], "gi"), to[i]);
+        }
+
+    str = str.toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\-]/g, ' ')
+        .replace(/-+/g, ' ');
+
+    return str;
+}
+
+var fetchData = function(){
+    var searchData = [];
+    var topicData = [];
+    var api = 'https://gw.vnexpress.net/cr/?name=answer_question_coronavirus';
+
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function(){
+        if (xhr.readyState === 4)
+        {
+            var data;
+            try {
+                var parseData = JSON.parse(xhr.responseText);
+                data = parseData.data.data[0];
+            } catch(e) {
+                console.log(e);
+            }
+            if(typeof data !== 'undefined' && parseData.code === 200)
+            {
+                var topics = data.topics;
+                var topicEl = document.querySelector('.widget-covid-tracker .box-quantam');
+                if(topics.length > 0)
+                {
+                    var topicTemp = '';
+					var dataSource = document.querySelector('body[data-source]').getAttribute('data-source');
+					if(dataSource == '' || typeof(dataSource) == 'undefined')
+						dataSource = 'Detail';
+                    for(var i = 0; i < topics.length; i++)
+                    {
+
+                        topicTemp += '<li><h3><a href="/covid-19#topic='+topics[i]+'" title="'+topics[i]+'">'+topics[i]+'</a></h3></li>';
+                        topicData.push({
+                            topic : topics[i],
+                            topic_ascii : textToAscii(topics[i])
+                        });
+                    }
+                    topicEl.querySelector('ul').innerHTML = topicTemp;
+
+					var allLinks = document.querySelectorAll('.box-quantam li a');
+                    for(var k = 0; k < allLinks.length; k++)
+                    {
+                        allLinks[k].addEventListener('click', function(){
+							console.log(dataSource);
+							dataLayer.push({
+								"event": "FAQEvent",
+								"FAQ_area": "SugesstionBox",
+								"FAQ_type": "Topic",
+								"FAQ_topic": topics[0],
+								"FAQ_question": ""
+							});
+                        });
+                    }
+                }
+                var aqs = data.answer_question;
+                if(aqs.length > 0)
+                {
+                    for(var j = 0; j < aqs.length; j++)
+                    {
+                        searchData.push({
+                            index : aqs[j]['index'],
+                            question : aqs[j]['Question'],
+                            question_ascii : textToAscii(aqs[j]['Question']),
+							topic_1 :  aqs[j]['Topic'],
+							topic_2 :  aqs[j]['Topic2'],
+                        });
+                    }
+                }
+                if(typeof search === 'function')
+                {
+                    var cycle = setInterval(function(){
+                        if(typeof Zepto === 'function')
+                        {
+                            clearInterval(cycle);
+                            importScript(js_cen_vne+'/v3/pc/libs/zepto/deferred.js', function(){
+                                importScript(js_cen_vne+'/v3/pc/libs/zepto/callbacks.js', function(){
+                                    importScript(js_cen_vne+'/v3/pc/libs/zepto/data.js', function(){
+                                        importScript(js_cen_vne+'/v3/helper/interactions/covid/js/typeahead.zepto.min.js', function(){
+                                            importScript(js_cen_vne+'/v3/helper/interactions/covid/js/zepto.mark.min.js', function(){});
+                                            search(searchData, topicData);
+                                        });
+                                    });
+                                });
+                            });
+                        }
+                        if(typeof jQuery === 'function')
+                        {
+                            clearInterval(cycle);
+                            importScript(js_cen_vne+'/v3/helper/interactions/covid/js/typeahead.bundle.min.js', function(){
+                                importScript(js_cen_vne+'/v3/helper/interactions/covid/js/jquery.mark.min.js', function(){});
+                                search(searchData, topicData);
+                            });
+                        }
+                    }, 500);
+                    setTimeout(function(){
+                        if(typeof cycle !== 'undefined')
+                        {
+                            clearInterval(cycle);
+                        }
+                    }, 10000);
+                }
+            }
+        }
+    };
+    xhr.open('GET', api);
+    xhr.send();
+}
+
+var htmlStructure = function(convertElement){
+    var html = '\
+    <div class="widget-covid-tracker">\
+        <div class="top-head-cov">\
+            <div class="txt-top"><a href="/covid-19" title="Thắc mắc thường gặp về Covid-19" style="color: #333333;text-decoration: none;">Thắc mắc thường gặp về Covid-19</a></div>\
+        </div>\
+        <div class="search-local">\
+            <form action="#" class="form-search">\
+                <input id="question_answer" class="search-input input-local" type="text" name="keyword" placeholder="Bạn có thắc mắc muốn tìm hiểu?" autocomplete="off">\
+                <button class="button-local" type="button"><img src="'+js_cen_vne+'/v3/helper/interactions/covid/css/images/Search.svg" alt="Search"></button>\
+            </form>\
+        </div>\
+        <div class="box-quantam">\
+            <ul></ul>\
+            <a href="/covid-19" title="Covid-19" class="overlay-link"></a>\
+        </div>\
+    </div>';
+    if(typeof convertElement === 'undefined')
+    {
+        return parseHTML(html);
+    }
+    else
+    {
+        return html;
+    }
+}
+
+var search = function(data, topicdata) {
+    var queryTokenizer = function (q) {
+        var normalized = textToAscii(q);
+        return Bloodhound.tokenizers.whitespace(normalized);
+    };
+
+    var question = new Bloodhound({
+        queryTokenizer: queryTokenizer,
+        datumTokenizer: Bloodhound.tokenizers.obj.whitespace('question_ascii'),
+        local : data
+    });
+
+    var topic = new Bloodhound({
+        queryTokenizer: queryTokenizer,
+        datumTokenizer: Bloodhound.tokenizers.obj.whitespace('topic_ascii'),
+        local : topicdata
+    });
+
+
+    $('#question_answer, #question_answer_taskbar').typeahead({
+        hint: true,
+        highlight: true,
+        minLength: 1,
+        limit: 5
+    },
+    {
+        source: topic,
+        displayKey: 'topic',
+        templates: {
+            suggestion: function (data) {
+                return '<li class="khighlight" data-type="topic"><i class="iconfont-chart"></i>' + data.topic + '</li>';
+            }
+        }
+    },
+    {
+        source: question,
+        displayKey: 'question',
+        templates: {
+            suggestion: function (data) {
+                return '<li class="khighlight" data-type="question">' + data.question + '</li>';
+            }
+        }
+    }).on('typeahead:selected', function (e, suggestion) {
+        if(typeof suggestion === 'object')
+        {
+			var dataSource = document.querySelector('body[data-source]').getAttribute('data-source');
+			if(dataSource == '' || typeof(dataSource) == 'undefined')
+				dataSource = 'Detail';
+            if(typeof suggestion.topic && suggestion.topic)
+            {
+				dataLayer.push({
+					"event": "FAQEvent",
+					"FAQ_area": "SearchBox",
+					"FAQ_type": "Topic",
+					"FAQ_topic": suggestion.topic,
+					"FAQ_question": ""
+				});
+
+                location.href = "/covid-19#topic="+encodeURI(suggestion.topic);
+            }
+            else if(typeof suggestion.question && suggestion.question)
+            {
+				var topic_1 = "";
+				if(typeof(suggestion.topic_1) != 'undefined')
+					topic_1 = suggestion.topic_1;
+				dataLayer.push({
+					"event": "FAQEvent",
+					"FAQ_area": "SearchBox",
+					"FAQ_type": "Question",
+					"FAQ_topic": topic_1,
+					"FAQ_question": suggestion.question
+				});
+				//console.log(5555);
+                location.href = "/covid-19#question="+encodeURI(suggestion.question);
+            }
+            $('#question_answer').blur();
+        }
+    }).on("typeahead:render", function() {
+        var searchTerm = $(this).val().trim();
+        if(searchTerm.length > 1)
+        {
+            $(".khighlight").mark(searchTerm, {
+                'separateWordSearch' : false
+            });
+        }
+    }).on("typeahead:open", function() {
+        $('#question_answer').typeahead('val','');
+    });
+}
+var banner = document.querySelector('[data-component-type=covid_faq]');
+if(banner === null)
+{
+    var targets = document.querySelector('.fck_detail');
+    var searchCheck = document.querySelector('.widget-covid-tracker .search-local');
+    if(device_env == 1)
+    {
+        targets = document.querySelector('#article_detail');
+    }
+    if(targets !== null && searchCheck === null)
+    {
+        importStyle(js_cen_vne+'/v3/helper/interactions/covid/css/widget-covid-tracker.css');
+        targets.appendChild(htmlStructure());
+        fetchData();
+    }
+}
+else
+{
+    importStyle(js_cen_vne+'/v3/helper/interactions/covid/css/widget-covid-tracker.css');
+    banner.innerHTML = htmlStructure(true);
+    fetchData();
+}
